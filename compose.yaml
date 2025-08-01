@@ -1,0 +1,27 @@
+name: x-go-painless-null
+
+# DB string (host)
+# postgres://postgres:pg-password@localhost:5432/app
+
+services:
+  database:
+    container_name: database
+    image: postgres:17
+    ports:
+      # Comment to unpublish port
+      - 5432:5432
+    environment:
+      # https://hub.docker.com/_/postgres#how-to-extend-this-image
+      POSTGRES_USER: postgres # `postgres` is default username
+      POSTGRES_PASSWORD: pg-password
+      POSTGRES_DB: app
+      PGDATA: /var/lib/postgresql/17/docker # Opt-in to version >= 18 behavior
+    volumes:
+      - postgres:/var/lib/postgresql
+      # Uncomment volume mounting when you need initialization script, adjust source volume path
+      # - ./dev/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+# Persist volume as needed
+volumes:
+  postgres:
+
+
