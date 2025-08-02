@@ -1,0 +1,59 @@
+version: "2"
+sql:
+  # Without overrides
+  - engine: postgresql
+    schema: ./migrations
+    queries: ./queries/pg
+    gen:
+      go:
+        package: pgx_pg
+        # Put generated `.go` files in
+        out: pkg/gen/gensql/pgx_pg
+        # Use this sql package
+        sql_package: pgx/v5
+        # Generate `json` tags on Model structs
+        emit_json_tags: true
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        emit_empty_slices: true
+  - engine: postgresql
+    schema: ./migrations
+    queries: ./queries/pg
+    gen:
+      go:
+        package: dbsql_pg
+        # Put generated `.go` files in
+        out: pkg/gen/gensql/dbsql_pg
+        # Use this sql package
+        sql_package: database/sql
+        # Generate `json` tags on Model structs
+        emit_json_tags: true
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        emit_empty_slices: true
+  - engine: mysql
+    schema: ./migrations
+    queries: ./queries/mysql
+    gen:
+      go:
+        package: dbsql_mysql
+        # Put generated `.go` files in
+        out: pkg/gen/gensql/dbsql_mysql
+        # Use this sql package
+        sql_package: database/sql
+        # Generate `json` tags on Model structs
+        emit_json_tags: true
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        emit_empty_slices: true
+  # With overrides
+
+
+
+
