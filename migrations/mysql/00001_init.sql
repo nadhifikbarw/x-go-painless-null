@@ -29,7 +29,7 @@ CREATE TABLE individual_addresses (
   country_code text,
   created_at timestamp NOT NULL,
   updated_at timestamp NOT NULL,
-  deleted_at timestamp NOT NULL
+  deleted_at timestamp
 )
 
 -- +goose Down

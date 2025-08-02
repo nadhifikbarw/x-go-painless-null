@@ -9,31 +9,31 @@ import (
 )
 
 type Individual struct {
-	ID                   string           `json:"id"`
-	OrgID                string           `json:"org_id"`
-	Uinfin               pgtype.Text      `json:"uinfin"`
-	Name                 pgtype.Text      `json:"name"`
-	Aliasname            pgtype.Text      `json:"aliasname"`
-	HanyupinyinName      pgtype.Text      `json:"hanyupinyin_name"`
-	HanyupinyinAliasname pgtype.Text      `json:"hanyupinyin_aliasname"`
-	MarriedName          pgtype.Text      `json:"married_name"`
-	Dob                  pgtype.Date      `json:"dob"`
-	Nationality          pgtype.Text      `json:"nationality"`
-	CreatedAt            pgtype.Timestamp `json:"created_at"`
-	UpdatedAt            pgtype.Timestamp `json:"updated_at"`
-	DeletedAt            pgtype.Timestamp `json:"deleted_at"`
+	ID                   string             `json:"id"`
+	OrgID                string             `json:"org_id"`
+	Uinfin               pgtype.Text        `json:"uinfin"`
+	Name                 pgtype.Text        `json:"name"`
+	Aliasname            pgtype.Text        `json:"aliasname"`
+	HanyupinyinName      pgtype.Text        `json:"hanyupinyin_name"`
+	HanyupinyinAliasname pgtype.Text        `json:"hanyupinyin_aliasname"`
+	MarriedName          pgtype.Text        `json:"married_name"`
+	Dob                  pgtype.Date        `json:"dob"`
+	Nationality          pgtype.Text        `json:"nationality"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type IndividualAddress struct {
-	ID           string           `json:"id"`
-	IndividualID string           `json:"individual_id"`
-	AddressLine1 pgtype.Text      `json:"address_line_1"`
-	AddressLine2 pgtype.Text      `json:"address_line_2"`
-	AddressLine3 pgtype.Text      `json:"address_line_3"`
-	PostalCode   pgtype.Text      `json:"postal_code"`
-	City         pgtype.Text      `json:"city"`
-	CountryCode  pgtype.Text      `json:"country_code"`
-	CreatedAt    pgtype.Timestamp `json:"created_at"`
-	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
-	DeletedAt    pgtype.Timestamp `json:"deleted_at"`
+	ID           string             `json:"id"`
+	IndividualID string             `json:"individual_id"`
+	AddressLine1 pgtype.Text        `json:"address_line_1"`
+	AddressLine2 pgtype.Text        `json:"address_line_2"`
+	AddressLine3 pgtype.Text        `json:"address_line_3"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	City         pgtype.Text        `json:"city"`
+	CountryCode  pgtype.Text        `json:"country_code"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 }

@@ -36,5 +36,5 @@ type IndividualAddress struct {
 	CountryCode  sql.NullString `json:"country_code"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    time.Time      `json:"deleted_at"`
+	DeletedAt    sql.NullTime   `json:"deleted_at"`
 }

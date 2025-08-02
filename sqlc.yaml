@@ -1,8 +1,83 @@
 version: "2"
 sql:
+  # With overrides
+  - engine: postgresql
+    schema: ./migrations/pg
+    queries: ./queries/pg
+    gen:
+      go:
+        package: guregu_pg
+        # Put generated `.go` files in
+        out: pkg/gen/gensql/guregu_pg
+        # Use this sql package
+        sql_package: pgx/v5
+        # Generate `json` tags on Model structs
+        emit_json_tags: true
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
+        emit_empty_slices: true
+        # Override field types using guregu/null
+        overrides:
+          - db_type: "text"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: "String"
+          - db_type: "date"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: 'Time'
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: 'Time'
+  - engine: mysql
+    schema: ./migrations/mysql
+    queries: ./queries/mysql
+    gen:
+      go:
+        package: guregu_mysql
+        # Put generated `.go` files in
+        out: pkg/gen/gensql/guregu_mysql
+        # Use this sql package
+        sql_package: database/sql
+        # Generate `json` tags on Model structs
+        emit_json_tags: true
+        # Apply snake_casing on DB column name for `json` tags generation
+        # e.g column with name `FullName` produces `json:"full_name"`
+        json_tags_case_style: snake
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
+        emit_empty_slices: true
+        # Override field types using guregu/null
+        overrides:
+          - db_type: "text"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: "String"
+          - db_type: "date"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: 'Time'
+          - db_type: "timestamp"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v6"
+              package: "null"
+              type: 'Time'
   # Without overrides
   - engine: postgresql
-    schema: ./migrations
+    schema: ./migrations/pg
     queries: ./queries/pg
     gen:
       go:
@@ -19,7 +94,7 @@ sql:
         # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
   - engine: postgresql
-    schema: ./migrations
+    schema: ./migrations/pg
     queries: ./queries/pg
     gen:
       go:
@@ -36,7 +111,7 @@ sql:
         # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
   - engine: mysql
-    schema: ./migrations
+    schema: ./migrations/mysql
     queries: ./queries/mysql
     gen:
       go:
@@ -52,7 +127,7 @@ sql:
         json_tags_case_style: snake
         # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
-  # With overrides
+
 
 
 

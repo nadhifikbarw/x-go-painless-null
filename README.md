@@ -98,44 +98,141 @@ Let's observe `dbsql_pg`, `dbsql_mysql`, and `pgx_pg` packages inside `pkg/gen/g
 
 > To support json serialization/deserialization provided by `encoding/json` stdlib a custom type can implement [`json.Marshaler`](https://pkg.go.dev/encoding/json#Marshaler) and [`json.Unmarshaler`](https://pkg.go.dev/encoding/json#Unmarshaler) interface. For brevity i'll refer type that implements both interfaces as `JSONOK`
 
-When you're using `pgx/v5` for generation, nullability is supported without using pointer type since `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype` handle this nullability via `Valid` field. If we see the generated model from `pgx_pg` we can see:
+### `pgx/v5` code generation
+
+When using `pgx/v5` for generation, nullability is supported without using pointer type using `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`. Each type typically handles nullability via `Valid` field. If we observe generated model from `pgx_pg` we can see:
 
 ```go
 type Individual struct {
-	ID                   string           `json:"id"`
-	OrgID                string           `json:"org_id"`
-	Uinfin               pgtype.Text      `json:"uinfin"`
-	Name                 pgtype.Text      `json:"name"`
-	Aliasname            pgtype.Text      `json:"aliasname"`
-	HanyupinyinName      pgtype.Text      `json:"hanyupinyin_name"`
-	HanyupinyinAliasname pgtype.Text      `json:"hanyupinyin_aliasname"`
-	MarriedName          pgtype.Text      `json:"married_name"`
-	Dob                  pgtype.Date      `json:"dob"`
-	Nationality          pgtype.Text      `json:"nationality"`
-	CreatedAt            pgtype.Timestamp `json:"created_at"`
-	UpdatedAt            pgtype.Timestamp `json:"updated_at"`
-	DeletedAt            pgtype.Timestamp `json:"deleted_at"`
+	ID                   string             `json:"id"`
+	OrgID                string             `json:"org_id"`
+	Uinfin               pgtype.Text        `json:"uinfin"`
+	Name                 pgtype.Text        `json:"name"`
+	Aliasname            pgtype.Text        `json:"aliasname"`
+	HanyupinyinName      pgtype.Text        `json:"hanyupinyin_name"`
+	HanyupinyinAliasname pgtype.Text        `json:"hanyupinyin_aliasname"`
+	MarriedName          pgtype.Text        `json:"married_name"`
+	Dob                  pgtype.Date        `json:"dob"`
+	Nationality          pgtype.Text        `json:"nationality"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
 }
 ```
 
-In order to know whether such field is null or not we can check each type source code:
+If we look at `pgtype.Text` as example, we can see it uses `Valid` field to represent nullability:
 ```go
 // From pgtype.Text implementation
-
 func (src Text) MarshalJSON() ([]byte, error) {
 	if !src.Valid {
 		return []byte("null"), nil
 	}
-
 	return json.Marshal(src.String)
 }
 ```
-Thus in order to set null value you can simply instantiate the struct with
+Thus, when using `pgtype.XxX` types to declare null value you just need to set `Valid` field as false, or simply empty initialization
 ```go
 nullTimestamp := pgtype.Timestamp{Valid: false}
-nullText := pgtype.Text{Valid: false}
+nullText := pgtype.Text{} // Empty initialization set Valid as false
 ```
 
-As i showcase above from source code `pgtype.XxX` types are `JSONOK`.
+As showcased above, most `pgtype.XxX` implements `MarshalJSON` thus making it `JSONOK`.
+
+### `database/sql` code generation
+
+When using `database/sql` for generation, nullability is supported without using pointer type using `sql.NullXxX` types from `database/sql`. Similar with `pgtype.XxX` mechanism. Each type typically handle nullability via `Valid` field. If we observe generated model from `dbsq_*` packages, we can see:
+
+```go
+type Individual struct {
+	ID                   string         `json:"id"`
+	OrgID                string         `json:"org_id"`
+	Uinfin               sql.NullString `json:"uinfin"`
+	Name                 sql.NullString `json:"name"`
+	Aliasname            sql.NullString `json:"aliasname"`
+	HanyupinyinName      sql.NullString `json:"hanyupinyin_name"`
+	HanyupinyinAliasname sql.NullString `json:"hanyupinyin_aliasname"`
+	MarriedName          sql.NullString `json:"married_name"`
+	Dob                  sql.NullTime   `json:"dob"`
+	Nationality          sql.NullString `json:"nationality"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            sql.NullTime   `json:"deleted_at"`
+}
+```
+
+  If we look at `sql.NullString` as example, we can see it uses `Valid` field to represent nullability:
+
+```go
+// Value implements the [driver.Valuer] interface.
+func (ns NullString) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return ns.String, nil
+}
+```
+Thus, when using `sql.NullXxX` types to declare null value you just need to set `Valid` field as false, or simply empty initialization
+
+```go
+nullTimestamp := sql.NullTime{Valid: false}
+nullText := sql.String{} // Empty initialization set Valid as false
+```
+
+## `sql.NullXxX` types are not `JSONOK`
+
+In contrast to `pgtype.XxX` that implements JSON interfaces, `sql.NullXxX` types are pretty minimalist. Therefore, if you have a valid needs that require you to use `database/sql` and eventually find the need for better interopability between your database model and JSON interface, you will find yourself needing to  write boilerplate further either via DTO, or your extended types to make it `JSONOK`.
+
+## Taking It Further with `guregu/null`
+
+The need for boilerplate structs to handle nullability and SQL+JSON interfacing is the premise behind `github.com/guregu/null/v6`. You can use premade boilerplate structs to conveniently define models using types that handle nullability and SQL, JSON interfacing.
+
+For `sqlc` since we either  use `database/sql` or `pgx/v5` for SQL interfacing. Let's see what each sql package interfaces for custom types. Since `pgx/v5` supports `database/sql.Scanner` and `database/sql/driver.Valuer` interfaces, any custom type that want to work with both packages need to implement those interfaces.
+
+```go
+// from: database/sql
+type Scanner interface {
+	Scan(src any) error
+}
+
+// from: database/sql/driver
+type Value any
+type Valuer interface {
+	// Value returns a driver Value.
+	// Value must not panic.
+	Value() (Value, error)
+}
+```
+
+All `null.XxX` and `zero.XxX` types implement `database/sql.Scanner` and `database/sql/driver.Valuer`.
+
+```go
+// from: guregu/null
+
+// String is a nullable string. It supports SQL and JSON serialization.
+// It will marshal to null if null. Blank string input will be considered null.
+type String struct {
+	sql.NullString // Just wraps sql.NullString
+}
+
+// But also makes it JSONOK
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this String is null.
+func (s String) MarshalJSON() ([]byte, error) {
+	if !s.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(s.String)
+}
+```
+
+If you want better experience of handling nullability and making SQL/JSON interfacing plays well, e.g. to write HTTP request/response DTO to facilitate json binding but handle SQL model conversion smoothly. You can consider `guregu/null` if you can't use `pgtype.XxX` because you're not using Postgres database (e.g. for sqlite).
+
+If you have access to `pgtype.XxX` and don't want to add more dependencies. I think `pgtype.XxX` can handle this concern too. but might be "iffy" because you're leaking your database details (`pg...`) in your DTO.
+
+## Note on VSCode + Go extension
+
+Sometimes, `sqlc generate` will get blocked for making changes when being run using integrated VScode terminal. I suspect it's because VSCode can prevent code changes in flies that contains `DO NOT EDIT` as you will see warning when trying to edit these files manually . As prevention deleting generated files before rerunning generate command works for now.
+
 
 
