@@ -91,7 +91,7 @@ sql:
         # Apply snake_casing on DB column name for `json` tags generation
         # e.g column with name `FullName` produces `json:"full_name"`
         json_tags_case_style: snake
-        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
   - engine: postgresql
     schema: ./migrations/pg
@@ -108,7 +108,7 @@ sql:
         # Apply snake_casing on DB column name for `json` tags generation
         # e.g column with name `FullName` produces `json:"full_name"`
         json_tags_case_style: snake
-        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
   - engine: mysql
     schema: ./migrations/mysql
@@ -125,7 +125,7 @@ sql:
         # Apply snake_casing on DB column name for `json` tags generation
         # e.g column with name `FullName` produces `json:"full_name"`
         json_tags_case_style: snake
-        # Generatecode that return empty slice for queries marked with `:many` instead of `nil``
+        # Generate code that return empty slice for queries marked with `:many` instead of `nil``
         emit_empty_slices: true
 
 

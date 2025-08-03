@@ -2,11 +2,11 @@
 
 ## Background
 
-In SQL (or JSON), the value `null` typically has semantic meaning that indicate that such data does not exist and should only be interpreted as unset/missing.
+In SQL (or JSON), the value `null` typically has semantic meaning that indicates that such data does not exist and should only be interpreted as unset/missing.
 
-Considering simple data type like string. It's not an uncommon domain requirement to clearly differentiate the meaning between empty string (`""`, zero of string in Go) and `null`. In field such as data analyst, understanding the distinction between NULL and empty string considered as crucial part of accurate data processing, analysis, and interpretation.
+Consider a simple data type like a string. It's not an uncommon domain requirement to clearly differentiate the meaning between empty string (`""`, zero of string in Go) and `null`. In fields such as data analysis, understanding the distinction between NULL and empty string considered a crucial part of accurate data processing, analysis, and interpretation.
 
-Thus, modelling a high-level domain struct in Go that need to interface with JSON/SQL often feels awkward. As alternative to facilitate lack of `null` in Go, pointer type is often used as alternative.
+Thus, modelling a high-level domain struct in Go that needs to interface with JSON/SQL often feels awkward. As an alternative to address the lack of `null` in Go, pointer types are often used as an alternative.
 
 ```go
 // Example of SQL Model using pointer type in gorm from https://gorm.io/docs/models.html
@@ -26,9 +26,9 @@ type User struct {
 
 IMO, I don't think using pointer to model optional value is that neat. In ideal world one might suggest to change the domain model itself around the zero value as one might argue dealing with `null` in other language can be as painful. But I haven't found this suggestion that useful.
 
-I find having to deal with pointer safely to facilitate nullability value can get in the way of getting things done (and in Go specifically it demands extra boilerplate code to cover serialization/deserialization) for something that should be relatively simple in scope.
+I find having to deal with pointer safely to facilitate nullability can get in the way of getting things done (and in Go specifically it demands extra boilerplate code to cover serialization/deserialization) for something that should be relatively simple in scope.
 
-Thus for the sake of it, I want to explore `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`, `sql.NullXxX` types from `database/sql`, and `github.com/guregu/null/v6` to see how to have better experience handling nullability, with less boilerplate code when handling interopability with JSON.
+Thus for the sake of it, I want to explore `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`, `sql.NullXxX` types from `database/sql`, and `github.com/guregu/null/v6` to see how to have better experience handling nullability, with less boilerplate code when handling interoperability with JSON.
 
 I'm going to explore how to use these types to configure `sqlc` codegen workflow.
 
@@ -180,7 +180,7 @@ nullText := sql.String{} // Empty initialization set Valid as false
 
 ## `sql.NullXxX` types are not `JSONOK`
 
-In contrast to `pgtype.XxX` that implements JSON interfaces, `sql.NullXxX` types are pretty minimalist. Therefore, if you have a valid needs that require you to use `database/sql` and eventually find the need for better interopability between your database model and JSON interface, you will find yourself needing to  write boilerplate further either via DTO, or your extended types to make it `JSONOK`.
+In contrast to `pgtype.XxX` that implements JSON interfaces, `sql.NullXxX` types are pretty minimalist. Therefore, if you have a valid reasons that require you to use `database/sql` and eventually find the need for better interoperability between your database model and JSON interface, you will find yourself needing to  write boilerplate further either via DTO, or your extended types to make it `JSONOK`.
 
 ## Taking It Further with `guregu/null`
 
@@ -232,7 +232,7 @@ If you have access to `pgtype.XxX` and don't want to add more dependencies. I th
 
 ## Note on VSCode + Go extension
 
-Sometimes, `sqlc generate` will get blocked for making changes when being run using integrated VScode terminal. I suspect it's because VSCode can prevent code changes in flies that contains `DO NOT EDIT` as you will see warning when trying to edit these files manually . As prevention deleting generated files before rerunning generate command works for now.
+Sometimes, `sqlc generate` will get blocked for making changes when being run using integrated VScode terminal. I suspect it's because VSCode can prevent code changes in flies that contains `DO NOT EDIT` as you will see warning when trying to edit these files manually . As prevention deleting generated files before rerunning the generate command works for now.
 
 
 
