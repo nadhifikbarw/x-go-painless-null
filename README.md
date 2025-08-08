@@ -1,10 +1,10 @@
 # Go Painless Null Binding
 
-In SQL (or JSON), the value `null` typically has semantic meaning that indicates whether a piece of data exist, this value is typically interpreted as unset/missing instead of its zero value equivalent.
+In SQL (or JSON), the value `null` typically assigned semantic meaning that indicates whether a piece of data exist, it's also often interpreted as unset/missing value.
 
-Consider a simple data type like a string. It's not an uncommon domain requirement to clearly differentiate the meaning between empty string (`""`, zero value) and `null`. In fields such as data analysis, understanding the distinction between NULL and empty string considered a crucial part of accurate data processing, analysis, and interpretation.
+Consider a simple data type like a string. It's not an uncommon domain requirement to differentiate the handling between empty string (`""`, Go zero value) and `null`. In fields such as data analysis, understanding the distinction between NULL and empty string considered a crucial part of accurate data processing, analysis, and interpretation.
 
-Thus, In go modelling a high-level domain struct, that needs to interface with JSON/SQL, often feels awkward. As an alternative to address the lack of `null` in Go, pointer types are often used as an alternative.
+Due to the lack of `null` in Go, modelling domain struct that interfaces with JSON/SQL can be awkward. Most obvious alternative to address this is by using pointer type to model `null` value.
 
 ```go
 // Example of SQL Model using pointer type in GORM from https://gorm.io/docs/models.html
@@ -22,19 +22,27 @@ type User struct {
 }
 ```
 
-I don't think using pointer to model optional value is that neat. In ideal world one might be suggested to change the domain model itself around the zero value as one might argue dealing with `null` in other language can be as painful. But I haven't found this suggestion that useful.
+I personally don't like using pointer type to handle nullability. I've also heard suggestions to change your domain models around the zero value, as one might argue dealing with `null` in other language can be as painful. But I haven't been able to find this suggestion super practical.
 
-I find having to deal with pointer safely to facilitate nullability can get in the way of getting things done (and specifically in Go, it demands extra boilerplate code to cover proper serialization/deserialization across interfaces) for something that should be relatively simple in scope.
+I find having to deal with pointer type (safely) is onerous for nullability, and it can get in the way of getting things done. Furthermore in Go, it often demands extra boilerplate code to handle  proper serialization/deserialization for something that should be relatively simple in scope.
 
-Thus for the sake of it, I want to explore properties of `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`, `sql.NullXxX` types from `database/sql`, and `github.com/guregu/null/v6` to see whether it's possible to have better experience handling nullability, with less boilerplate code to handle interoperability with JSON.
+Thus for the sake of it, I went to explore properties of:
 
-The write up below observe nullability with help of `sqlc` codegen workflow, but its findings should be generic because `sqlc` generate code that uses popular sql packages that work with the generic `database/sql/driver.Valuer` interface. Various library related to IO interfacing typically support the `Valuer` interface.
+* `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`
+* `sql.NullXxX` types from `database/sql`
+* `null.XxX` types from `github.com/guregu/null/v6`
+
+to see whether it's possible to have better experience when handling nullability, worry less about boilerplate code, and ease interfacing with SQL/JSON.
+
+This write up explored nullability with primary focus from `sqlc` codegen workflow perspective, but its findings are generic because `sqlc` generate relatively common boilerplate code and uses popular sql packages that uses `database/sql/driver.Valuer` interface. Various libraries handling data interface typically support/use the `Valuer` interface.
 
 ## Example Domain Scenario
 
-Let's imagine you're working on improving KYC data collection to support operational process by integrating with gov service. I'm going to use [Singapore Myinfo Data Model](https://docs.developer.singpass.gov.sg/docs/data-catalog-myinfo/catalog/personal) to explore this scenario.
+Let's imagine you're working on improving KYC data collection to support business operation by integrating with gov service. I'm going to borrow [Singapore Myinfo Data Model](https://docs.developer.singpass.gov.sg/docs/data-catalog-myinfo/catalog/personal) to explore this scenario.
 
-In order to build meaningful data capture of `Individual` information it might be beneficial to avoid conflating null-valued vs empty-valued information. Our example tables defined as:
+We want to introduce autofill feature to ease form filling experience by leveraging Government-supplied information, but user will need to have the ability to correct/append information that might be missing/incorrect from 3rd party integration. To facilitate this UX we want to support partial form / stepped form saving mechanism to reduce friction when users might be unable to finish it in one go.
+
+In order to build meaningful transactional data capture of `Individual` information it's beneficial to distinguish between null-valued vs zero-valued data coming from the third part integration. Thus, our example domain tables are defined such:
 
 ```sql
 -- +goose Up
@@ -73,13 +81,9 @@ CREATE TABLE individual_addresses (
 -- the rest...
 ```
 
-For UX sake, whenever you try to collect lengthy info from users, it's almost always best to have partial form / stepped form saving mechanism in place to reduce friction when users might be unable to finish it in one go.
-
-In this scenario we also imagine introducing autofill feature to make form filling experience even easier by leveraging Government-supplied information, user then will have the ability to correct any information that autofilled in case of mismatch/missing data from the 3rd party integration.
-
 ## Choosing between the `pgx/v5` and `database/sql`
 
-When using `sqlc` one can configure  which sql package to use to facilitate database connection and interfacing with your db-related logic.
+When using `sqlc`, one can configure which sql package to use that facilitate database connection and tailor your db-related logic.
 
 > From: https://github.com/jackc/pgx?tab=readme-ov-file#choosing-between-the-pgx-and-databasesql-interfaces
 >
@@ -94,13 +98,13 @@ When using `sqlc` one can configure  which sql package to use to facilitate data
 
 We're going to look into code that `sqlc` generated using `database/sql` and `pgx/v5` to see how nullability and JSON interoperability get handled.
 
-`dbsql_pg`, `dbsql_mysql`, and `pgx_pg` packages inside `pkg/gen/gensql` are generated without any `overrides` with `emit_pointers_for_null_types: false` set.
+`dbsql_pg`, `dbsql_mysql`, and `pgx_pg` packages inside `pkg/gen/gensql` are generated with `emit_pointers_for_null_types: false` without any `overrides`.
 
 > A custom type can support json serialization/deserialization provided by `encoding/json` by implementing [`json.Marshaler`](https://pkg.go.dev/encoding/json#Marshaler) and [`json.Unmarshaler`](https://pkg.go.dev/encoding/json#Unmarshaler) interface. For brevity I'll refer type that implements both interfaces as `JSONOK`.
 
 ### `pgx/v5` code generation
 
-`pgx/v5` generated code handle nullability without pointer types by using `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`. Each type typically handles nullability via `Valid` field. If we see the generated model from `pgx_pg` we can see:
+`pgx/v5` generated code doesn't use pointer type for nullability, instead it uses `pgtype.XxX` types from `github.com/jackc/pgx/v5/pgtype`. It handles nullability using `Valid` field. If we see the generated model from `pgx_pg` we can see:
 
 ```go
 type Individual struct {
@@ -120,7 +124,7 @@ type Individual struct {
 }
 ```
 
-If we look into `pgtype.Text` implementation as example, we can see it uses `Valid` field to mark nullability:
+If we look into `pgtype.Text` implementation as example, we can see it uses `Valid` field to facilitate nullability:
 
 ```go
 // From pgtype.Text implementation
@@ -139,11 +143,11 @@ nullTimestamp := pgtype.Timestamp{Valid: false}
 nullText := pgtype.Text{}
 ```
 
-As showcased from `pgtype.Text` internal above, most `pgtype.XxX` implements `encoding/json` interfaces making it `JSONOK`.
+As showcased from `pgtype.Text` internal above, `pgtype.XxX` implements `encoding/json` interfaces making it `JSONOK`.
 
 ### `database/sql` code generation
 
-`database/sql` generated code handle nullability without pointer types by using `sql.NullXxX` types from `database/sql`. Each type typically handles nullability via `Valid` field (similar mechanism to `pgtype.XxX`). If we see the generated model from both `dbsql_pg` or `dbsql_mysql` we can see:
+`database/sql` generated code also doesn't use pointer type for nullability, instead it uses `sql.NullXxX` types from `database/sql`. It handles nullability via `Valid` field (same as `pgtype.XxX`). If we see the generated model from both `dbsql_pg` or `dbsql_mysql` we can see:
 
 ```go
 type Individual struct {
@@ -163,7 +167,7 @@ type Individual struct {
 }
 ```
 
-If we look into `sql.NullText` implementation as example, we can see it uses `Valid` field to mark nullability:
+If we look into `sql.NullText` implementation as example, we can see it uses `Valid` field to facilitate nullability:
 
 ```go
 // Value implements the [driver.Valuer] interface.
@@ -185,17 +189,15 @@ nullText := sql.String{}
 
 ### `sql.NullXxX` types are not `JSONOK`
 
-In contrast to `pgtype.XxX` types which implement JSON interfaces, `sql.NullXxX` types internal are pretty minimalist.
+In contrast to `pgtype.XxX` types, `sql.NullXxX` types doesn't implement JSON interfaces types, the internals are pretty minimalist.
 
-Therefore, if you need to use `database/sql`, you might eventually feel the needs for better mechanisms that offer interoperability between your database model and logic for that ask for JSON interfaces.
-
-If you want to support JSON interfaces for `sql.NullXxX` types, having boilerplate support code via simple DTO, or extending types that to make such types `JSONOK` to handle JSON interface will be the only path forward.
+Therefore, if you need to use `database/sql`, you might sooner or later feel the need to make extended custom types to make it easier to support JSON interfacing as well.
 
 ## Taking It Further with `guregu/null`
 
-The need for such boilerplate support code that offer nullability and reasonable SQL+JSON interfacing are the premises behind `github.com/guregu/null/v6`.
+The need for such boilerplate support code that offer nullability and sane experience for both SQL and JSON interfaces are the premises behind `github.com/guregu/null/v6`.
 
-It provides that boilerplate pre-made custom types to conveniently define structs/models that require nullability, similar to `pgtype.XxX` but not platform-specific.
+It provides that boilerplate custom types to conveniently define structs/models that require nullability, similar to `pgtype.XxX` but not platform-specific.
 
 `guregu/null` has 2 packages `null.XxX` or `zero.XxX`. [Documentation](https://github.com/guregu/null)
 
@@ -216,7 +218,7 @@ type Valuer interface {
 }
 ```
 
-If we look into `null.String` implementation as example, we can see it actually embeds the `sql.NullString` type to cover nullability, but also implements `encoding/json` interfaces to make each type `JSONOK`:
+If we look into `null.String` implementation as example, we can see it actually just embeds the `sql.NullString` type to cover nullability, but extend implementation for `encoding/json` interfaces to make each type `JSONOK`:
 
 ```go
 // from: guregu/null.String
@@ -244,9 +246,9 @@ func (s String) MarshalJSON() ([]byte, error) {
 
 ## Example Convenient DTO
 
-Let's imagine now you need to implement endpoint that allow user to correct or amend some information that might still be missing, it's a simple REST endpoint that takes `application/json` payload.
+Let's imagine now you need to implement the endpoint that allow user to correct/amend some information that might still be missing, it's a simple REST endpoint that takes `application/json` payload.
 
-Now since you have shared types that can represent nullability that work with JSON and SQL interfaces, it's possible to define your DTO struct as such to make it convenient to map these field into the SQL model.
+Now, since you have the shared types to represent nullability that work with JSON and SQL interfaces. It's possible to make the json body binding that conveniently map into the SQL mode. Note: I don't mean sharing SQL/storage layer model for endpoint, but using the same `null.String` type for field in model for each layer.
 
 ```go
 // Imagine you have Web UI stepped form
@@ -260,8 +262,6 @@ type UinfinNamesForm struct {
 	married_name          null.String
 }
 ```
-
-So you can consider `guregu/null` if you want these type of convenience, especially when you're not using Postgres database (e.g. you're using sqlite sqlite) or simply want to use `database/sql` instead (since `database/sql` also support postgres).
 
 ### Using `pgtype.XxX` ?
 
@@ -277,21 +277,21 @@ type PgUinfinNamesForm struct {
 }
 ```
 
-But it depends on your taste and sensitivity around separation of concerns, as someone might find this approach "iffy" because you're leaking database details in your DTO. An example of implementation that someone might find very leaky:
+But it depends on your taste and sensitivity around separation of concerns, as someone might find this approach "iffy" because you're leaking database details in your json body binding. An example of implementation that someone might find very leaky:
 
 ```go
 type PgAgeForm struct {
-	Age pgtype.Int4
+	Age pgtype.Int4 // One might find this is leaky since it leaks data size of your storage layer
 }
 ```
 
 ## Overriding `sqlc` generated code to use `guregu/null`
 
-If you want examples of using `guregu/null` as part of `sqlc` workflow to instruct `sqlc` to generate code using these types, you can take a look inside [`sqlc.yaml`](./sqlc.yaml) where I configure `overrides` to use custom types on fields that need nullability.
+If you want examples of using `guregu/null` as part of `sqlc` workflow to instruct `sqlc` to generate code using these types, you can take a look inside [`sqlc.yaml`](./sqlc.yaml) where I configure `overrides` to use `null.XxX` types for nullable fields.
 
-You can also read the generated code in [`guregu_pg`](./pkg/gen/gensql/guregu_pg/) or [`guregu_mysql`](./pkg/gen/gensql/guregu_mysql/) to see how generated code looks like with `pgx/v5` or `database/sql`. It's actually simple and humble code.
+You can read the generated code in [`guregu_pg`](./pkg/gen/gensql/guregu_pg/) or [`guregu_mysql`](./pkg/gen/gensql/guregu_mysql/) to see how generated code looks like with `pgx/v5` or `database/sql`.
 
-Here is  a snippet of generated model with `guregu/null` overrides:
+The generated code are actually very simple and humble boilerplate code. A snippet of generated model with partially overridden with `guregu/null` types:
 
 ```go
 type Individual struct {
@@ -311,31 +311,28 @@ type Individual struct {
 }
 ```
 
-You can see how sharing types accross DTO and SQL can make it convenient for writing your business logic.
+You can see how sharing types that support common JSON/SQL interfaace can make it easy and convenient to model and map the necessary data between transport, business, and storage layer that need to facilitate nullability.
 
-## Notes on Binding and Validation
+## Notes on JSON Binding and Data Validation
 
-Since `JSONOK` types implement `json.Unmarshaler` common binding logic that rely on `json.Unmarshaler` should work accordingly when using these custom types.
+Since `JSONOK` types implement `json.Unmarshaler` common binding logic that rely on `json.Unmarshaler` should work accordingly when using `null.XxX` types.
 
 Example, [Echo Web Framework](https://echo.labstack.com/docs/binding#data-sources):
 >Echo supports the following tags specifying data sources:
->
-> * query - query parameter
-> * param - path parameter (also called route)
-> * header - header parameter
+> [...]
 > * json - request body. Uses builtin Go json package for UNMARSHALLING.
 > * xml - request body. Uses builtin Go xml package for unmarshalling.
 > * form - form data. Values are taken from query and request body. Uses Go standard library form parsing.
 
-For validation, you need to check how validation library of your choice handles custom types, for example [`go-playground/validator`](https://github.com/go-playground/validator) can support custom type but [asks you to register it beforehand](https://github.com/go-playground/validator/blob/master/_examples/custom/main.go).
+For validation, you need to check how validation library of choice handles custom types, for example [`go-playground/validator`](https://github.com/go-playground/validator) can support custom type but [asks you to register it beforehand](https://github.com/nadhifikbarw/x-go-validator-valuer/blob/main/main.go).
 
 ## Notes on VSCode + Go extension
 
-As I'm writing this write up, I found out that `sqlc generate` sometimes will get prevented to generate code when being called using the integrated VSCode terminal if you already have generated files in target folders
+As I'm writing this write up, I found out that `sqlc generate` sometimes will get prevented to generate code when being called using Intergrated VSCode Terminal if you already have generated files in the target folders.
 
-I suspect `sqlc` attempted to simply modify fields and VSCode prevents code changes on files containing `DO NOT EDIT` as you will see Warning will popup when trying to edit these files manually as well.
+I suspect `sqlc` attempts to modify code got blocked by VSCode since the generated files contains `DO NOT EDIT`. You will see wraning popup when trying to edit these files manually as well.
 
-As sane prevention deleting generated files before rerunning the `generate` command works for now.
+As sane prevention, deleting generated files before re-running the `generate` command works.
 
 
 
